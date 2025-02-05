@@ -1,4 +1,4 @@
-$TimesToRun = 1
+$TimesToRun = 100
 $RunTimeP = 1	# Time in minutes
 $From = "sparkdigi56@gmail.com"
 $Pass = "sdlzeiyqfaiflejg"
